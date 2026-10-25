@@ -1,4 +1,4 @@
-const CACHE_NAME = 'technik-assistent-v1';
+const CACHE_NAME = 'technik-assistent-v2';
 
 const STATIC_PRECACHE = [
   './',
@@ -30,7 +30,14 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Stale-While-Revalidate strategy for offline support & automatic background updates
+// Listen for skipWaiting messages from client
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// Fetch: Network-First for HTML/Navigation, Cache-First for hashed assets
 self.addEventListener('fetch', (event) => {
   const request = event.request;
 
@@ -40,26 +47,38 @@ self.addEventListener('fetch', (event) => {
   // Ignore non-http(s) schemes (e.g. chrome-extension, data:)
   if (!request.url.startsWith('http')) return;
 
+  const url = new URL(request.url);
+  const isHtml = request.mode === 'navigate' || url.pathname.endsWith('.html') || url.pathname.endsWith('/');
+
+  // 1. Navigation / HTML: Network-First with cache fallback (guarantees latest GitHub Pages deploy)
+  if (isHtml) {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // 2. Hashed static assets / images: Cache-First with network fallback & background update
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
-      // Revalidate in background
-      const fetchPromise = fetch(request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        // Network failed (offline), if we had no cached response and it's a page navigation, return index.html
-        if (!cachedResponse && request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-        return null;
-      });
+      const fetchPromise = fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => null);
 
-      // Return cached version immediately if available, otherwise wait for network
       return cachedResponse || fetchPromise;
     })
   );

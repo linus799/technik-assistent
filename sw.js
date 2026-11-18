@@ -1,7 +1,7 @@
 const base = self.registration.scope;
 const prefix = 'technik-assistent:' + base + ':';
-const cacheName = prefix + '4877357456a4a9d7';
-const assets = ["./","./index.html","./manifest.webmanifest","./apple-touch-icon.png","./icon-192.png","./icon-512.png","./favicon.png","./assets/index-BwDtCW6l.js","./assets/index-B4EM32NK.css"].map(path => new URL(path, base).href);
+const cacheName = prefix + '09638e1e34b589c8';
+const assets = ["./","./index.html","./manifest.webmanifest","./apple-touch-icon.png","./icon-192.png","./icon-512.png","./favicon.png","./assets/index-LGUF-im3.js","./assets/index-DA8npiDL.css"].map(path => new URL(path, base).href);
 const shell = new URL('./', base).href;
 
 self.addEventListener('install', event => {
